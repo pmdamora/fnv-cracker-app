@@ -1,0 +1,8 @@
+build/
+out/
+uploads/
+gradlew.bat
+passwordcrack.iml
+.idea/
+testFile.txt
+.gradle/

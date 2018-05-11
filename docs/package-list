@@ -1,0 +1,5 @@
+passwordcrack
+passwordcrack.controllers
+passwordcrack.cracking
+passwordcrack.storage
+passwordcrack.storage.exceptions
