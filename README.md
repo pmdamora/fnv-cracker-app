@@ -3,6 +3,8 @@
 
 ![](https://i.imgur.com/9bxhecQ.png)
 
+## [Documentation](https://pmdamora.github.io/fnv-cracker-app/)
+## [Demo](https://fnv-cracker-app.herokuapp.com/)
 ## Deployment
 
 Follow these instructions to deploy yourself.
