@@ -20,7 +20,7 @@ function connect() {
     stompClient.connect({}, function (frame) {
         console.log('Connected: ' + frame);
         stompClient.subscribe('/topic/crackstatus', function (message) {
-            $('#cracked-text').text(JSON.parse(message.body).content);
+            $('#cracked-text').text(message.body);
 
             disconnect();
             setTimeout(closeMessage, 2000);
@@ -87,7 +87,7 @@ Dropzone.options.uploadForm = {
 
         dropz.on("success", function(file, data) {
             console.log('Successfully uploaded file: ' + data.fileName);
-            poll(data.fileName);
+            // poll(data.fileName);
 
             success = true;
             setTimeout(mysteryMessage, 1000);

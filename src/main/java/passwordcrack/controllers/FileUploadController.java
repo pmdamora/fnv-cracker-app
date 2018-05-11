@@ -6,20 +6,22 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.SendTo;
+
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import passwordcrack.cracking.CrackMessage;
+import passwordcrack.storage.FileStorageProperties;
 import passwordcrack.storage.StorageService;
 import passwordcrack.storage.UploadResponse;
 import passwordcrack.cracking.PasswordBreaker;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 
@@ -31,32 +33,39 @@ import java.util.concurrent.ExecutionException;
 @RestController
 public class FileUploadController {
     private static final String ACCEPTABLE_TYPE = "text/plain";
+
     private StorageService storageService;
-    private PasswordBreaker passwordBreaker;
+    private SimpMessagingTemplate template;
+    private final Path fileStorageLocation;
 
 
     /**
      * Constructor injects storage service field
      * @param storageService storage service interface
-     * @param passwordBreaker cracks uploaded hashes
+     * @param fileStorageProperties file storage properties
+     * @param template simple messaging template
      */
     @Autowired
-    public FileUploadController(StorageService storageService, PasswordBreaker passwordBreaker) {
+    public FileUploadController(StorageService storageService, FileStorageProperties fileStorageProperties,
+                                SimpMessagingTemplate template) {
         this.storageService = storageService;
-        this.passwordBreaker = passwordBreaker;
+        this.fileStorageLocation = Paths.get(fileStorageProperties.getUploadDir())
+                .toAbsolutePath().normalize();
+        this.template = template;
     }
 
 
     /**
      * Creates an API for file upload.
      * @param file The multipart file received from the client
-     * @return UploadResponse Returns a response object containing the filename, file uri
+     * @return ResponseEntiry Returns a response object containing the filename, file uri
      * content type, and size.
      */
     @PostMapping("/uploadFile")
     public ResponseEntity<UploadResponse> uploadFile(@RequestParam("file") MultipartFile file) throws InterruptedException, ExecutionException {
         // Save the file
         // String fileName = storageService.store(file);
+        PasswordBreaker pb = new PasswordBreaker();
 
         // Check that the client provided the correct file type
         if (!file.getContentType().equals(ACCEPTABLE_TYPE)) {
@@ -66,7 +75,8 @@ public class FileUploadController {
         String fileName = StringUtils.cleanPath(file.getOriginalFilename());
 
         // Crack the passwords
-        passwordBreaker.crack(file, fileName);
+        pb.crack(file, fileName, fileStorageLocation);
+        crackStatus(pb);
 
         // Create the file uri
         String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
@@ -85,7 +95,7 @@ public class FileUploadController {
      * Creates an API for file download.
      * @param fileName The name of the file to be downloaded
      * @param request The http request
-     * @return A response to the server
+     * @return ResponseEntity the object containing the file to download
      *
      * Resources: https://www.callicoder.com/spring-boot-file-upload-download-rest-api-example/
      */
@@ -117,14 +127,11 @@ public class FileUploadController {
     /**
      * Polls the server to determine when the passwords are finished cracking, and sends them to the client
      * as text content.
-     * @param message the supplied message
-     * @return an updated CrackMessage
+     * @param pb the password breaker instance
      */
-    @MessageMapping("/crack")
-    @SendTo("/topic/crackstatus")
-    public CrackMessage crackStatus(CrackMessage message) {
+    private void crackStatus(PasswordBreaker pb) {
         String result = "";
-        BlockingQueue status = passwordBreaker.getStatus();
+        BlockingQueue status = pb.getStatus();
         String done;
 
         // We communicate with the PasswordBreaker thread with a blockingqueue
@@ -133,7 +140,7 @@ public class FileUploadController {
         try {
             done = status.take().toString();
             if (done.equals("finished")) {
-                result = passwordBreaker.getResult();
+                result = pb.getResult();
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -144,7 +151,7 @@ public class FileUploadController {
             result = "Error fetching file contents";
         }
 
-        message.setContent(result);
-        return message;
+        // Send the result
+        template.convertAndSend("/topic/crackstatus", result);
     }
 }
