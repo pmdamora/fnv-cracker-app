@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 
@@ -62,7 +63,7 @@ public class FileUploadController {
      * content type, and size.
      */
     @PostMapping("/uploadFile")
-    public ResponseEntity<UploadResponse> uploadFile(@RequestParam("file") MultipartFile file) throws InterruptedException, ExecutionException {
+    public ResponseEntity<UploadResponse> uploadFile(@RequestParam("file") MultipartFile file) {
         // Save the file
         // String fileName = storageService.store(file);
         PasswordBreaker pb = new PasswordBreaker();
@@ -75,8 +76,14 @@ public class FileUploadController {
         String fileName = StringUtils.cleanPath(file.getOriginalFilename());
 
         // Crack the passwords
-        pb.crack(file, fileName, fileStorageLocation);
-        crackStatus(pb);
+        CompletableFuture.runAsync(() -> {
+            try {
+                pb.crack(file, fileName, fileStorageLocation);
+            } catch (InterruptedException | ExecutionException e) {
+                throw new IllegalStateException(e);
+            }
+        });
+        CompletableFuture.runAsync(() -> crackResults(pb));
 
         // Create the file uri
         String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
@@ -129,9 +136,9 @@ public class FileUploadController {
      * as text content.
      * @param pb the password breaker instance
      */
-    private void crackStatus(PasswordBreaker pb) {
+    private void crackResults(PasswordBreaker pb) {
         String result = "";
-        BlockingQueue status = pb.getStatus();
+        BlockingQueue status = pb.getResultQueue();
         String done;
 
         // We communicate with the PasswordBreaker thread with a blockingqueue
@@ -152,6 +159,6 @@ public class FileUploadController {
         }
 
         // Send the result
-        template.convertAndSend("/topic/crackstatus", result);
+        template.convertAndSend("/topic/crackresults", result);
     }
 }

@@ -5,6 +5,8 @@ var clipboard = new ClipboardJS('.copy-js');
 var copyBtn = $('.copy-js');
 
 // Various event listeners
+connect();
+
 clipboard.on('success', function(e) {
     copyBtn.attr('data-balloon', 'Copied!');
 
@@ -19,24 +21,13 @@ function connect() {
     stompClient = Stomp.over(socket);
     stompClient.connect({}, function (frame) {
         console.log('Connected: ' + frame);
-        stompClient.subscribe('/topic/crackstatus', function (message) {
+        stompClient.subscribe('/topic/crackresults', function (message) {
             $('#cracked-text').text(message.body);
-
-            disconnect();
             setTimeout(closeMessage, 2000);
         });
     });
 }
 
-function disconnect() {
-    if (stompClient !== null) {
-        stompClient.disconnect();
-    }
-}
-
-function poll(fileName) {
-    stompClient.send("/app/crack", {}, JSON.stringify({'content': fileName}));
-}
 
 // Dropzone configuration options
 // noinspection JSAnnotator
@@ -67,7 +58,6 @@ Dropzone.options.uploadForm = {
             }
 
             $('.dz-message').hide();
-            connect();
 
             // Hook up the start button
             $('.butn').on('click', function( event ) {
@@ -87,7 +77,6 @@ Dropzone.options.uploadForm = {
 
         dropz.on("success", function(file, data) {
             console.log('Successfully uploaded file: ' + data.fileName);
-            // poll(data.fileName);
 
             success = true;
             setTimeout(mysteryMessage, 1000);

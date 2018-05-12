@@ -32,11 +32,11 @@ public class HashChecker implements Callable {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public String call() {
         try {
             String passString;
             String hashString;
-            int found;
 
             // Continue until all possibilities are generated
             while (!finished.get()) {
@@ -46,11 +46,9 @@ public class HashChecker implements Callable {
                 // We've got a match
                 if (keyHashes.get(hashString) != null && keyHashes.get(hashString).equals("")) {
                     keyHashes.put(hashString, passString);
-                    found = foundPasswords.incrementAndGet();
-                    // System.out.println("Match found: " + passString + " - " + hashString);
-
+                    System.out.println(hashString + " : " + passString);
                     // Are we done yet?
-                    if (found == TOTAL_PASSWORDS) {
+                    if (foundPasswords.incrementAndGet() == TOTAL_PASSWORDS) {
                         finished.set(true);
                     }
                 }

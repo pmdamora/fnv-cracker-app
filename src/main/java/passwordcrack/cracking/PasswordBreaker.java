@@ -1,6 +1,5 @@
 package passwordcrack.cracking;
 
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,20 +16,20 @@ public class PasswordBreaker {
     private final int CORES = Runtime.getRuntime().availableProcessors();
     private static final String COMMON_PASSWORDS_LOCATION = "data/common.txt";
 
-    private BlockingQueue status;
+    private BlockingQueue resultQueue;
     private BlockingQueue queue;
     private ConcurrentHashMap<String, String> keyHashes; // Shared table, stores all generated values
-    private Queue<String> commons; // A LL storing all of the common passwords
+    private Queue<String> commons; // A queue storing all of the common passwords
     private AtomicBoolean finished; // Signals to threads whether or not we are done
     private AtomicInteger foundPasswords;
-    private  StringBuilder result;
+    private StringBuilder result;
 
 
     /**
      * Constructor.
      */
     public PasswordBreaker() {
-        this.status = new ArrayBlockingQueue<>(1);
+        this.resultQueue = new ArrayBlockingQueue<>(1);
         this.queue  = new ArrayBlockingQueue<>(100);
         this.keyHashes = new ConcurrentHashMap<>();
         this.commons = new LinkedList<>();
@@ -39,9 +38,8 @@ public class PasswordBreaker {
         this.result = new StringBuilder();
     }
 
-
-    public BlockingQueue getStatus() {
-        return status;
+    public BlockingQueue getResultQueue() {
+        return resultQueue;
     }
 
     public String getResult() {
@@ -57,7 +55,6 @@ public class PasswordBreaker {
      * http://coderscampus.com/java-multithreading-java-util-concurrent/
      * https://www.callicoder.com/java-callable-and-future-tutorial/
      */
-    @Async
     public void crack(MultipartFile file, String fileName, Path fileStorageLocation) throws InterruptedException, ExecutionException {
         parseFiles(file);
         getGuesses();
@@ -87,7 +84,7 @@ public class PasswordBreaker {
         }
 
         try {
-            status.put("finished");
+            resultQueue.put("finished");
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
